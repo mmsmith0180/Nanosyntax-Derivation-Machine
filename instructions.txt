@@ -13,3 +13,7 @@ pip install -r requirements.txt
 5. Run the interface:
 
 streamlit run interface.py
+
+6. When inputing lexical items: 
+    - use $\bot$ for the bottom of the tree
+    - avoid things like $\#$ or $\pi$ and use instead something like Num and Person 
