@@ -475,7 +475,7 @@ def create_preview(tree):
         [
             "pdflatex",
             "preview.tex"
-        ]
+        ],
         check=True
     )
 
