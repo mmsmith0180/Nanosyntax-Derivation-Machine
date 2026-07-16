@@ -302,6 +302,7 @@ def indirect_matching(tree, lexicon):
             
             for item in new_nodes: 
                 matches.append(check_lexicon(item, lexicon))
+                matched_trees.append(item)
             if len(matches) == (len(new_nodes) + 1) and None not in matches and len(matches)!=0:
                 return matched_trees, matches
 
