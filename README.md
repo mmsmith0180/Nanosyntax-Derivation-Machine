@@ -1,3 +1,11 @@
+## Live Demo
+
+A hosted version of the application is available at:
+
+https://nanosyntax-derivation-machine.onrender.com
+
+The hosted version is intended for testing and demonstration purposes.
+
 # Nanosyntax Derivation Machine
 
 The Nanosyntax Derivation Machine is an open-source computational tool for constructing and exploring nanosyntactic derivations. It supports user-defined functional sequences and lexicon building by automatically performing feature-by-feature Merge, lexicalization, movement operations, and derivation visualization.
@@ -28,6 +36,10 @@ The Derivation Machine implements the following functions:
 ### Current Limitations and Future directions
 
 This program currently funcitons in only a single workspace. It does not yet implement multiple workspaces (Starke 2025, Nanoseminar Spring 2025, Morphopalooza 2026). This is, however, the project's next future direction.
+
+Users must also adjust s-sep on forst trees and make some minor scale edits on their own for larger trees. This can be accomplished by clicking the Download LaTeX Derivation button and opening the file in your local TeX editor (or copy-pasting the code into an online Overleaf project). 
+
+Users must also remove duplicate slides. These arise because the successful movement possibility is printed before matching occurs. In cases where movement does not occur, the correct movement possibility is the same as the original tree, resulting in a slide duplicate. Duplicates can be removed in the downloadable LaTeX file after clicking "Build Derivation".
  
 
 
@@ -135,13 +147,19 @@ Example:
 
 ### Phrase Notation 
 
-Every phrase label should be input as a capital "P"
+Every phrase label should end in an uppercase `P`.
+
+Example:
+
+```
+TenseP
 ```
 
-Example: 
+Avoid:
 
 ```
-TenseP instead of Tensep
+Tensep
+```
 
 
 ### Homophonous morphemes 

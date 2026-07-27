@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+
+title: "Nanosyntax Derivation Machine"
+
+message: >
+  If you use this software in research, please cite it using the metadata below.
+
+type: software
+
+authors:
+  - family-names: Smith
+    given-names: Meg
+
+version: 0.1.0
+
+date-released: 2026-07-24
+
+license: GPL-3.0
+
+abstract: >
+  A computational implementation of nanosyntactic derivation
+  and lexicalization for building and exploring derivations
+  using tree-based feature structures.
+
+repository-code: https://github.com/mmsmith0180/Nanosyntax-Derivation-Machine
+
+keywords:
+  - linguistics
+  - nanosyntax
+  - syntax
+  - morphology 
+  - derivation
