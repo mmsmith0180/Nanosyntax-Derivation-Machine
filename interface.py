@@ -1,3 +1,19 @@
+# Nanosyntax Derivation Machine
+# Copyright (C) 2026 Meg Smith
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 import subprocess as std_subprocess 
 import os 
 
@@ -6,6 +22,7 @@ import Derivation_Machine_INTERFACE
 import uuid
 
 import base64
+import shutil
 
 def image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
@@ -33,38 +50,119 @@ st.header("Build Lexicon")
 if "lexicon_entries" not in st.session_state:
     st.session_state.lexicon_entries = []
 
+if "structure_input" not in st.session_state:
+    st.session_state.structure_input = ""
+
+if "load_entry" not in st.session_state:
+    st.session_state.load_entry = None
+
+if "phonology_input" not in st.session_state:
+    st.session_state.phonology_input = ""
+
+if "clear_inputs" not in st.session_state:
+    st.session_state.clear_inputs = False
+
+if st.session_state.clear_inputs:
+    st.session_state.structure_input = ""
+    st.session_state.phonology_input = ""
+    st.session_state.clear_inputs = False
+
+if st.session_state.load_entry is not None:
+    st.session_state.structure_input = st.session_state.load_entry["tree_string"]
+    st.session_state.phonology_input = st.session_state.load_entry["phonology"]
+    st.session_state.load_entry = None
+
 left, right = st.columns([3, 1])
 
 with left:
 
     structure_input = st.text_area(
         "Lexical structure",
-        height=180
+        height=180,
+        key="structure_input"
     )
 
 with right:
 
     phonological_input = st.text_input(
-        "Phonological form"
+        "Phonological form",
+        key="phonology_input"
     )
 
-if st.button("Add to lexicon"):
+if "editing_entry" in st.session_state:
+    button_label = "Save changes" 
+else: 
+    button_label = "Add to lexicon"
+
+if st.button(button_label):
     
-    projection = Derivation_Machine_INTERFACE.latex_to_tree(
-        structure_input
-    ) 
+    try:
+        projection = Derivation_Machine_INTERFACE.latex_to_tree(
+            structure_input
+        )
 
-    preview_image = Derivation_Machine_INTERFACE.create_preview(projection) 
+    except Exception:
+        st.error(
+        "Could not compile tree. Please input a valid forest structure."
+        )
+        st.stop() 
 
-    st.session_state.lexicon_entries.append(
-    {
-        "id" : str(uuid.uuid4()), 
-        "tree_string": structure_input,
-        "tree": projection,
-        "phonology": phonological_input,
-        "semantics" : None  
-     }
-    )
+    duplicate = False
+
+    for entry in st.session_state.lexicon_entries:
+        if (
+            (
+            entry["tree"] == projection
+            or entry["phonology"] == phonological_input
+            )
+            and entry["id"] != st.session_state.get("editing_entry")
+        ):
+            duplicate = True
+            break
+    if duplicate:
+        st.error(
+            "This item conflicts with an existing lexical entry."
+            "Trees and phonological forms must be unique."
+        )
+        st.stop()
+
+    if "editing_entry" in st.session_state: 
+
+        for entry in st.session_state.lexicon_entries:
+            if entry["id"] == st.session_state.editing_entry:
+
+                entry["tree_string"] = structure_input
+                entry["tree"] = projection
+                entry["phonology"] = phonological_input
+
+                Derivation_Machine_INTERFACE.delete_preview(entry["preview"])
+
+                entry["preview"] = Derivation_Machine_INTERFACE.create_preview(
+                    projection, 
+                    filename=f"preview_{uuid.uuid4()}"
+                    )
+
+                break
+        del st.session_state.editing_entry
+
+    else:  
+        st.session_state.lexicon_entries.append(
+            {
+                "id": str(uuid.uuid4()),
+                "tree_string": structure_input,
+                "tree": projection,
+                "phonology": phonological_input,
+                "preview": Derivation_Machine_INTERFACE.create_preview(
+                    projection, 
+                    filename=f"preview_{uuid.uuid4()}"
+                    ),
+                "semantics": None
+            }
+        )
+
+    st.session_state.clear_inputs = True
+
+    st.rerun() 
 
 st.divider()
 
@@ -86,11 +184,7 @@ for i in range(0, len(entries), cards_per_row):
 
                 st.subheader(entry["phonology"])
 
-                preview_image = (
-                    Derivation_Machine_INTERFACE.create_preview(
-                        entry["tree"]
-                    )
-                )
+                preview_image = entry["preview"]
 
                 image_base64 = image_to_base64(preview_image)
 
@@ -123,14 +217,16 @@ for i in range(0, len(entries), cards_per_row):
                     if st.button("Edit", key=f"edit_{entry["id"]}"):
                         st.session_state.editing_entry = entry["id"]
 
-                    if "editing_entry" in st.session_state:
-                        entry = st.session_state.lexicon_entries[st.session_state.editing_entry]
+                        st.session_state.load_entry = entry
 
-                        latex_input = entry["tree_string"]
-                        phonology_input = entry["phonology"]
+                        st.rerun()
+
 
                 with col2:
                     if st.button("Delete", key=f"delete_{entry["id"]}"):
+
+                        Derivation_Machine_INTERFACE.delete_preview(entry["preview"])
+
                         st.session_state.lexicon_entries.remove(entry)
                         st.rerun()              
 
@@ -160,6 +256,12 @@ if st.button("Build derivation"):
         lexicon
     )
 
+    if shutil.which("pdflatex") is None:
+        st.error(
+            "LaTeX compiler not found. Please install TeX Live or MacTeX."
+        )
+        st.stop()
+
     std_subprocess.run( 
         [
             "pdflatex",
@@ -169,6 +271,15 @@ if st.button("Build derivation"):
         capture_output=True,
         text=True
     )
+
+    if not os.path.exists("derivations.pdf"):
+        st.error("Could not compile pdf derivation.")
+        st.stop()
+
+    for ext in [".aux", ".log", ".nav", ".out", ".snm", ".toc"]:
+        path = f"derivations{ext}"
+        if os.path.exists(path):
+            os.remove(path)
 
     st.session_state.derivation_ready = True
 

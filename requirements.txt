@@ -1,8 +1,2 @@
-REQUIREMENTS 
-
-Python 3.12 or newer
-MacTex (for macOS) or TeX Live (for Windows or Linux) 
-
-Python Packages: 
 PyMuPDF>=1.26
 streamlit>=1.46

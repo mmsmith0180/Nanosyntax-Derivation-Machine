@@ -1,3 +1,19 @@
+# Nanosyntax Derivation Machine
+# Copyright (C) 2026 Meg Smith
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+# See the GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 from pydoc import doc
 import subprocess
 import os 
@@ -95,12 +111,41 @@ def contains_structure(tree, target):
                 return True
     return False
 
+# ------ Find Anchor of an LI ------ Note: an anchor is either the base or the lowest feature in the f-seq present in a given lexical item
+# NOTE TO SELF: CHECK ALL OF THE INSTANCES OF CONTAINS_STRUCTURE() AFTER MODIFICATION OF THE FUNCTION 
+def find_anchor(lexical_item):
+    
+    if not isinstance(lexical_item, Projection): 
+        return None
+    
+    for item in lexical_item.structure: 
+        if isinstance(item, Projection):
+            return find_anchor(item)
+        
+    for item in lexical_item.structure: 
+        if isinstance(item, (Feature, Base)): 
+            return item 
+        
+    return None 
+
+
 # ------ Basic Direct Match Function ------
 def check_lexicon(state, lexicon):
-    matches = []
+    
     for key, value in lexicon.items():
-        if contains_structure(key, state):
-            matches.append((key, value))
+
+        if key == state: 
+            return value # immediate direct match found
+
+    matches = []
+
+    for key, value in lexicon.items():
+
+        anchor = find_anchor(key)
+
+        if anchor is not None:
+            if contains_structure(key, state) and contains_structure(state, anchor):
+                matches.append((key, value))
 
     if not matches: 
         return None
@@ -297,6 +342,7 @@ def indirect_matching(tree, lexicon):
             matches = []
             matched_trees = []
             
+            write_to_latex(node)
             matches.append(check_lexicon(node, lexicon))
             matched_trees.append(node)
             
@@ -374,16 +420,16 @@ def write_to_latex(tree):
 
 def write_to_match(tree, match_dict):
 
-    def recurse_and_write(node): 
+    def recurse_and_write(node):
         
         new_tree = ""
 
         if isinstance(node, Projection):
             if node in match_dict.keys():
                 if node.label == "-":
-                    new_tree += "[" + "" + ",tikz={\\node[draw,circle,inner sep=-1pt,fit to=tree,label=south:\emph{" + match_dict[node] + "}] {};}"
+                    new_tree += "[" + "" + ",tikz={\\node[draw,circle,inner sep=-1pt,fit to=tree,label=south:\\emph{" + match_dict[node] + "}] {};}"
                 else: 
-                    new_tree += "[" + str(node.label) + ",tikz={\\node[draw,circle,inner sep=-1pt,fit to=tree,label=south:\emph{" + match_dict[node] + "}] {};}"
+                    new_tree += "[" + str(node.label) + ",tikz={\\node[draw,circle,inner sep=-1pt,fit to=tree,label=south:\\emph{" + match_dict[node] + "}] {};}"
             elif node.label == "-":
                 new_tree += "[" + ""
             else: 
@@ -420,7 +466,7 @@ def write_to_match(tree, match_dict):
 
 
 # ------ Write to LaTeX for Preview ------ 
-def create_preview(tree):
+def create_preview(tree, filename="preview"):
 
     def recurse_and_write(node): 
         
@@ -447,7 +493,7 @@ def create_preview(tree):
                             
     latex_tree = recurse_and_write(tree) 
     
-    with open("preview.tex", "w", encoding="utf-8") as f: 
+    with open(f"{filename}.tex", "w", encoding="utf-8") as f: 
         f.write(
             "\\documentclass{standalone}\n"
             "\\usepackage[T1]{fontenc}\n"
@@ -472,29 +518,46 @@ def create_preview(tree):
             "\\end{document}\n"
         )
 
+    if shutil.which("pdflatex") is None:
+        raise RuntimeError(
+            "pdflatex not found. Please install TeX Live or MacTeX."
+        )
+    
     subprocess.run(
         [
             "pdflatex",
-            "preview.tex"
+            f"{filename}.tex"
         ],
         check=True
     )
 
-    doc = fitz.open("preview.pdf")
+    doc = fitz.open(f"{filename}.pdf")
 
     page = doc.load_page(0)
 
     pix = page.get_pixmap(dpi=300)
 
-    pix.save("_preview.png")
+    pix.save(f"{filename}.png")
 
     doc.close()
 
-    return "_preview.png"
+    for ext in [".tex", ".pdf", ".aux", ".log"]:
+        path = f"{filename}" + ext
+        if os.path.exists(path):
+            os.remove(path)
+
+    return f"{filename}.png"
+
+# ------ Delete Preview File for Cleanup ------
+def delete_preview(filename):
+    if os.path.exists(filename):
+        os.remove(filename)
 
 
 # ------ Convert LaTeX Input to Recursive Projection() Class ------
 def latex_to_tree(tree_string):
+
+    tree_string = tree_string.strip()
 
     index = 0
 
@@ -515,6 +578,8 @@ def latex_to_tree(tree_string):
         while tree_string[index] not in [" ", "[", "]"]:
             content += tree_string[index]
             index += 1
+
+        content = content.strip()
 
         daughters = []
 
@@ -585,7 +650,6 @@ def build_clause(f_seq, lexicon):
             "\\usepackage{tikz}\n"
             "\\def\\checkmark{\\tikz\\fill[scale=0.4](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}\n" 
             "\\usetikzlibrary{calc}\n"
-            "\\usepackage{expex}\n"
             "\\usepackage{adjustbox}\n"
             "\\usepackage{tabularx}\n"
             "\\usepackage{multirow}\n"
