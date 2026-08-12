@@ -1,5 +1,5 @@
 # Nanosyntax Derivation Machine
-# Copyright (C) 2026 Meg Smith
+# Copyright (C) 2026 Fryske Akademy & Meg Smith
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -342,7 +342,6 @@ def indirect_matching(tree, lexicon):
             matches = []
             matched_trees = []
             
-            write_to_latex(node)
             matches.append(check_lexicon(node, lexicon))
             matched_trees.append(node)
             
@@ -377,7 +376,7 @@ def indirect_matching(tree, lexicon):
 #------ Managing Input and Output ------
 #_______________________________________
 
-def write_to_latex(tree):
+def write_to_latex(tree, derivations_path):
 
     def recurse_and_write(node): 
         
@@ -403,37 +402,62 @@ def write_to_latex(tree):
         return new_tree
                             
     latex_tree = recurse_and_write(tree) 
-    
-    with open("derivations.tex", "a", encoding="utf-8") as f: 
-        f.write(
-            "\n"
-            "\\begin{frame}\n"
-            "\t\\begin{center}\n"
-            "\t\t\\begin{adjustbox}{max width=\\textwidth, max height=.9\\textheight}\n"
-            "\t\t\t\\begin{forest}\n"
-            f"\t\t\t{latex_tree}\n"
-            "\t\t\t\\end{forest}\n"
-            "\t\t\\end{adjustbox}\n"
-            "\t\\end{center}\n"
-            "\\end{frame}\n"
-        )
+     
+    new_slide = (
+        "\n"
+        "\\begin{frame}\n"
+        "\t\\begin{center}\n"
+        "\t\t\\begin{adjustbox}{max width=\\textwidth, max totalheight=.9\\textheight}\n"
+        "\t\t\t\\begin{forest}\n"
+        f"\t\t\t{latex_tree}\n"
+        "\t\t\t\\end{forest}\n"
+        "\t\t\\end{adjustbox}\n"
+        "\t\\end{center}\n"
+        "\\end{frame}\n"
+    )
 
-def write_to_match(tree, match_dict):
+    with open(derivations_path, "a+", encoding="utf-8") as f:
+        f.seek(0)
+        existing = f.read()
+
+        if not existing.endswith(new_slide): 
+            f.write(new_slide)
+            
+def write_to_match(tree, match_dict, derivations_path):
+    def count_matches(node):
+        if node in match_dict: 
+            return 1
+
+        if isinstance(node, Projection): 
+            return sum(
+                count_matches(daughter)
+                for daughter in node.structure
+            )
+
+        return 0 
+
+    def get_s_sep(node):
+        matches = count_matches(node) 
+        if matches > 1: 
+            return f",s sep={30 * matches}pt"
+        return "" 
 
     def recurse_and_write(node):
+
+        s_sep = get_s_sep(node) 
         
         new_tree = ""
 
         if isinstance(node, Projection):
             if node in match_dict.keys():
                 if node.label == "-":
-                    new_tree += "[" + "" + ",tikz={\\node[draw,circle,inner sep=-1pt,fit to=tree,label=south:\\emph{" + match_dict[node] + "}] {};}"
+                    new_tree += "[" + "" + s_sep + ",tikz={\\node[draw,circle,inner sep=0pt,fit to=tree,label=south:\\emph{" + match_dict[node] + "}] {};}"
                 else: 
-                    new_tree += "[" + str(node.label) + ",tikz={\\node[draw,circle,inner sep=-1pt,fit to=tree,label=south:\\emph{" + match_dict[node] + "}] {};}"
+                    new_tree += "[" + str(node.label) + s_sep + ",tikz={\\node[draw,circle,inner sep=0pt,fit to=tree,label=south:\\emph{" + match_dict[node] + "}] {};}"
             elif node.label == "-":
-                new_tree += "[" + ""
+                new_tree += "[" + "" + s_sep
             else: 
-                new_tree += "[" + str(node.label) 
+                new_tree += "[" + str(node.label)  + s_sep
 
             for daughter in node.structure:
                 new_tree += recurse_and_write(daughter) 
@@ -450,12 +474,12 @@ def write_to_match(tree, match_dict):
                             
     latex_tree = recurse_and_write(tree) 
     
-    with open("derivations.tex", "a", encoding="utf-8") as f: 
+    with open(derivations_path, "a", encoding="utf-8") as f: 
         f.write(
             "\n"
             "\\begin{frame}\n"
             "\t\\begin{center}\n"
-            "\t\t\\begin{adjustbox}{max width=\\textwidth, max height=.9\\textheight}\n"
+            "\t\t\\begin{adjustbox}{max width=\\textwidth, max totalheight=.9\\textheight}\n"
             "\t\t\t\\begin{forest}\n"
             f"\t\t\t{latex_tree}\n"
             "\t\t\t\\end{forest}\n"
@@ -522,13 +546,19 @@ def create_preview(tree, filename="preview"):
         raise RuntimeError(
             "pdflatex not found. Please install TeX Live or MacTeX."
         )
-    
+
+    preview_dir = os.path.dirname(filename)
+    preview_filename = os.path.basename(filename) + ".tex"
+
     subprocess.run(
         [
             "pdflatex",
-            f"{filename}.tex"
+            "-interaction=nonstopmode",
+            "-halt-on-error",
+            preview_filename
         ],
-        check=True
+    cwd=preview_dir,
+    check=True
     )
 
     doc = fitz.open(f"{filename}.pdf")
@@ -638,10 +668,12 @@ def create_f_seq(feature_names):
 #____________________________________________________________________________
 # ------ The Main Clause Building Function Where it All Comes Together ------
 #____________________________________________________________________________
-def build_clause(f_seq, lexicon): 
+def build_clause(f_seq, lexicon, output_dir): 
+
+    derivations_path = os.path.join(output_dir, "derivations.tex")
 
 # ------ Open LaTeX File and Define Preamble ------
-    with open("derivations.tex", "w", encoding="utf-8") as f:
+    with open(derivations_path, "w", encoding="utf-8") as f:
         f.write(
             "\\documentclass[12pt, aspectratio=169]{beamer}\n"
             "\\mode<presentation>\n"
@@ -680,8 +712,6 @@ def build_clause(f_seq, lexicon):
 
         nonlocal final, counter, interim_stages, remaining_movement_possibilities, remaining_f_seq
 
-        print("Starting build_and_match")
-        print("counter =", counter)
         for f in f_seq:
         
             f_seq_copy = remaining_f_seq[counter - 1][:]
@@ -694,10 +724,9 @@ def build_clause(f_seq, lexicon):
             label = f"{f.name}P"
             first_try = Projection(label, (f, final))       # creates the new tree that results from Merge F: a labeled FP
             
-            write_to_latex(first_try)
+            write_to_latex(first_try, derivations_path)
 
             lexicalization_possibilities = rescue_movement(first_try)
-            print(lexicalization_possibilities)
 
 # ------ Helper Function for Matching ------
             def matching(list1): 
@@ -714,7 +743,6 @@ def build_clause(f_seq, lexicon):
                     list2.remove(possibility)
         
                     if direct_match is not None:
-                        print("You found a match: " + direct_match)
                         final = possibility
                         remaining_movement_possibilities[counter] = list2
                         interim_stages[counter] = possibility
@@ -722,13 +750,11 @@ def build_clause(f_seq, lexicon):
                         return [possibility], [direct_match]
 
                     if indirect_match is not None:
-                        print("You found a match:", [str(item) for item in indirect_match])
                         final = possibility 
                         remaining_movement_possibilities[counter] = list2
                         interim_stages[counter] = possibility
         
-                        return indirect_match
-                print("MATCHING FAILED FOR:", [str(x) for x in list1])        
+                        return indirect_match      
                 return False
 
 # ------ Back to main function body ------
@@ -738,11 +764,9 @@ def build_clause(f_seq, lexicon):
             if result is not False: 
                 matched_trees, matches = result
                 match_dict = dict(zip(matched_trees, matches))
-                write_to_latex(final)
-                write_to_match(final, match_dict)
+                write_to_latex(final, derivations_path)
+                write_to_match(final, match_dict, derivations_path) 
                 continue
-            else: 
-                print("No match found! Let's try backtracking")
 
             available_previous_cycles = list(range(counter - 1, -1, -1))
 
@@ -765,25 +789,13 @@ def build_clause(f_seq, lexicon):
     success = build_and_match(f_seq, lexicon)
 
     if success:
-        print("Derivation successful! Woohoo!")
-        with open("derivations.tex", "a", encoding="utf-8") as f:
+        with open(derivations_path, "a", encoding="utf-8") as f:
             f.write(
             "\\end{document}" )      
     else:
-        print("Derivation failed. No more possibilities :(") 
-        with open("derivations.tex", "a", encoding="utf-8") as f:
+        with open(derivations_path, "a", encoding="utf-8") as f:
             f.write(
             "\\end{document}" ) 
                     
 if __name__ == "__main__":
-
-    f_seq_verbal_1sg_pres = create_f_seq(
-        ["SPI", "Asp", "Mood", "Tense", "Num", "Person", "Part", "Sp"]
-    )
-
-    lexicon = {}
-
-    build_clause(
-        f_seq_verbal_1sg_pres,
-        lexicon
-    )
+    pass
