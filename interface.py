@@ -482,7 +482,7 @@ if st.session_state.derivation_ready:
                 <iframe
                 src="data:application/pdf;base64,{pdf_base64}"
                 width="100%"
-                height="350"
+                height="425"
                 style="border: none;">
                 </iframe>
                 """,
