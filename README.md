@@ -202,6 +202,6 @@ GitHub will automatically generate citations in several formats via the reposito
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 (GPL-3.0).
+This project is licensed under the Apache License, Version 2.0.
 
 A copy of the license is included in the `LICENSE` file.
