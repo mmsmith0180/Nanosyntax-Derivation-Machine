@@ -15,11 +15,11 @@ version: 0.1.0
 
 date-released: 2026-07-24
 
-license: GPL-3.0
+license: Apache-2.0 
 
 abstract: >
-  A computational implementation of nanosyntactic derivation
-  and lexicalization for building and exploring derivations
+  A computational implementation of nanosyntactic tree building 
+  and lexicalization for the purpose of building and exploring derivations
   using tree-based feature structures.
 
 repository-code: https://github.com/mmsmith0180/Nanosyntax-Derivation-Machine

@@ -1,18 +1,17 @@
 # Nanosyntax Derivation Machine
-# Copyright (C) 2026 Fryske Akademy & Meg Smith
+# Copyright 2026 Fryske Akademy & Meg Smith
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-# See the GNU General Public License for more details.
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
-# You should have received a copy of the GNU General Public License
-# along with this program. If not, see <https://www.gnu.org/licenses/>.
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
 import subprocess as std_subprocess 
 import os 
@@ -92,7 +91,8 @@ st.write("Enter a functional sequence below.")
 
 feature_input = st.text_input(
     "Functional sequence:",
-    "SPI, Asp, Mood, Tense, Num, Person, Part, Sp"
+    "SPI, Asp, Mood, Tense, Num, Person, Part, Sp", 
+    disabled=st.session_state.derivation_ready
 )
 
 st.divider()
@@ -134,14 +134,16 @@ with left:
     structure_input = st.text_area(
         "Lexical structure",
         height=180,
-        key="structure_input"
+        key="structure_input", 
+        disabled=st.session_state.derivation_ready
     )
 
 with right:
 
     phonological_input = st.text_input(
         "Phonological form",
-        key="phonology_input"
+        key="phonology_input", 
+        disabled=st.session_state.derivation_ready
     )
 
 if "editing_entry" in st.session_state:
@@ -149,7 +151,7 @@ if "editing_entry" in st.session_state:
 else: 
     button_label = "Add to lexicon"
 
-if st.button(button_label):
+if st.button(button_label, disabled=st.session_state.derivation_ready): 
     
     try:
         projection = Derivation_Machine_INTERFACE.latex_to_tree(
@@ -274,7 +276,11 @@ for i in range(0, len(entries), cards_per_row):
                 col1, col2 = st.columns(2)
 
                 with col1:
-                    if st.button("Edit", key=f"edit_{entry["id"]}"):
+                    if st.button(
+                        "Edit", 
+                        key=f"edit_{entry["id"]}", 
+                        disabled=st.session_state.derivation_ready 
+                    ):
                         st.session_state.editing_entry = entry["id"]
 
                         st.session_state.load_entry = entry
@@ -283,7 +289,11 @@ for i in range(0, len(entries), cards_per_row):
 
 
                 with col2:
-                    if st.button("Delete", key=f"delete_{entry["id"]}"):
+                    if st.button(
+                        "Delete", 
+                        key=f"delete_{entry["id"]}",
+                        disabled=st.session_state.derivation_ready
+                    ):
 
                         Derivation_Machine_INTERFACE.delete_preview(entry["preview"])
 
@@ -292,72 +302,75 @@ for i in range(0, len(entries), cards_per_row):
 
 st.divider()
 
-if st.button("Build derivation", use_container_width=True):
+if not st.session_state.derivation_ready:
 
-    # Convert user input into a Python list
-    feature_names = [
-        x.strip()
-        for x in feature_input.split(",")
-    ]
+    if st.button("Build derivation", use_container_width=True):
 
-    # Create Feature() objects
-    f_seq = Derivation_Machine_INTERFACE.create_f_seq(feature_names)
+        # Convert user input into a Python list
+        feature_names = [
+            x.strip()
+            for x in feature_input.split(",")
+        ]
 
-    st.write("Building derivation...")
+        # Create Feature() objects
+        f_seq = Derivation_Machine_INTERFACE.create_f_seq(feature_names)
 
-    lexicon = {
-        entry["tree"]: entry["phonology"]
-        for entry in st.session_state.lexicon_entries
-    }
+        st.write("Building derivation...")
 
-    Derivation_Machine_INTERFACE.build_clause(
-        f_seq,
-        lexicon, 
-        st.session_state.derivations_dir
-    )
+        lexicon = {
+            entry["tree"]: entry["phonology"]
+            for entry in st.session_state.lexicon_entries
+        }
 
-    if shutil.which("pdflatex") is None:
-        st.error(
-            "LaTeX compiler not found. Please install TeX Live or MacTeX."
+        Derivation_Machine_INTERFACE.build_clause(
+            f_seq,
+            lexicon, 
+            st.session_state.derivations_dir
         )
-        st.stop()
 
-    derivation_filename = os.path.basename(derivations_path)
+        if shutil.which("pdflatex") is None:
+            st.error(
+                "LaTeX compiler not found. Please install TeX Live or MacTeX."
+            )
+            st.stop()
 
-    result = std_subprocess.run(
-        [
-            "pdflatex",
-            "-interaction=nonstopmode",
-            "-halt-on-error",
-            derivation_filename
-        ],
-        cwd=st.session_state.derivations_dir,
-        capture_output=True,
-        text=True
-    )
+        derivation_filename = os.path.basename(derivations_path)
 
-    if result.returncode != 0:
-        st.error("Could not compile PDF derivation.")
-        st.code(result.stdout + "\n" + result.stderr)
-        st.stop()
+        result = std_subprocess.run(
+            [
+                "pdflatex",
+                "-interaction=nonstopmode",
+                "-halt-on-error",
+                derivation_filename
+            ],
+            cwd=st.session_state.derivations_dir,
+            capture_output=True,
+            text=True
+        )
 
-    if not os.path.exists(derivations_pdf_path):
-        st.error("Could not compile pdf derivation.")
-        st.stop()
+        if result.returncode != 0:
+            st.error("Could not compile PDF derivation.")
+            st.code(result.stdout + "\n" + result.stderr)
+            st.stop()
 
-    for ext in [".aux", ".log", ".nav", ".out", ".snm", ".toc"]:
-        path = os.path.join(
-            st.session_state.derivations_dir, 
-            f"derivations{ext}"
-            )       
-        if os.path.exists(path):
-            os.remove(path)
+        if not os.path.exists(derivations_pdf_path):
+            st.error("Could not compile pdf derivation.")
+            st.stop()
 
-    st.session_state.derivation_ready = True
+        for ext in [".aux", ".log", ".nav", ".out", ".snm", ".toc"]:
+            path = os.path.join(
+                st.session_state.derivations_dir, 
+                f"derivations{ext}"
+                )       
+            if os.path.exists(path):
+                os.remove(path)
 
-    st.success("Derivation complete!")
+        st.session_state.derivation_ready = True
+        st.session_state.show_derivation_controls = True
 
-    st.session_state.show_derivation_controls = True
+        st.rerun()
+
+        st.success("Derivation complete!")
 
 if st.session_state.show_derivation_controls: 
 
@@ -378,93 +391,43 @@ if st.session_state.show_derivation_controls:
     if continue_editing:
 
         st.session_state.show_derivation_controls = False
-
-        feature_names = [
-            x.strip()
-            for x in feature_input.split(",")
-        ]
-
-        f_seq = Derivation_Machine_INTERFACE.create_f_seq(feature_names)
-
-        lexicon = {
-            entry["tree"]: entry["phonology"]
-            for entry in st.session_state.lexicon_entries
-        }
-
-        Derivation_Machine_INTERFACE.build_clause(
-            f_seq,
-            lexicon,
-            st.session_state.derivations_dir
-        )
-
-        if shutil.which("pdflatex") is None:
-            st.error(
-                "LaTeX compiler not found. Please install TeX Live or MacTeX."
-            )
-            st.stop()
-
-        std_subprocess.run(
-            [
-                "pdflatex",
-                "-interaction=nonstopmode",
-                "-halt-on-error",
-                "-output-directory",
-                st.session_state.derivations_dir,
-                derivations_path
-            ],
-            capture_output=True,
-            text=True
-        )
-
-        if not os.path.exists(derivations_pdf_path):
-            st.error("Could not compile pdf derivation.")
-            st.stop()
-
-        for ext in [".aux", ".log", ".nav", ".out", ".snm", ".toc"]:
-            path = os.path.join(
-                st.session_state.derivations_dir,
-                f"derivations{ext}"
-            )
-
-            if os.path.exists(path):
-                os.remove(path)
+        st.session_state.derivation_ready = False
 
         st.rerun()
 
-        if new_derivation:
-            st.session_state.show_derivation_controls = False
-            st.session_state.derivation_ready = False
+    if new_derivation:
+        st.session_state.show_derivation_controls = False
+        st.session_state.derivation_ready = False
 
         # Delete lexical-entry preview files
-            for entry in st.session_state.lexicon_entries:
-                Derivation_Machine_INTERFACE.delete_preview(entry["preview"])
+        for entry in st.session_state.lexicon_entries:
+            Derivation_Machine_INTERFACE.delete_preview(entry["preview"])
 
         # Clear the lexicon
-            st.session_state.lexicon_entries = []
+        st.session_state.lexicon_entries = []
 
         # Clear lexical-entry input fields
-            st.session_state.structure_input = ""
-            st.session_state.phonology_input = ""
+        st.session_state.clear_inputs = True
 
         # Clear the derivations directory
-            for filename in os.listdir(st.session_state.derivations_dir):
-                path = os.path.join(
-                    st.session_state.derivations_dir,
-                    filename
-                )
-                if os.path.isfile(path):
-                    os.remove(path)
+        for filename in os.listdir(st.session_state.derivations_dir):
+            path = os.path.join(
+                st.session_state.derivations_dir,
+                filename
+            )
+            if os.path.isfile(path):
+                os.remove(path)
 
         # Clear the previews directory
-            for filename in os.listdir(st.session_state.preview_dir):
-                path = os.path.join(
-                    st.session_state.preview_dir,
-                    filename
-                )
-                if os.path.isfile(path):
-                    os.remove(path)
+        for filename in os.listdir(st.session_state.preview_dir):
+            path = os.path.join(
+                st.session_state.preview_dir,
+                filename
+            )
+            if os.path.isfile(path):
+                os.remove(path)
 
-            st.rerun()
+        st.rerun()
 
 if st.session_state.derivation_ready:
 
