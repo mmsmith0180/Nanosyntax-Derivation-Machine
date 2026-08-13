@@ -32,7 +32,7 @@ The Derivation Machine implements the following functions:
 The program automatically scales trees, circles matches, and adjusts the s-sep of most small, successfully matched trees. 
 
 ### Algorithmic Definitions 
-* Subextraction is defined such that the program searches for and extracts the closest labelled non-remnant constituent, rather than the bottom of the tree. 
+* Subextraction is defined such that the program searches for and extracts the closest labelled non-remnant constituent rather than the bottom of the tree. 
 * Backcycling looks for the most recent cycle for which another movement possibility yields a match. The derivation then proceeds forwards from that point. It does not override the elsewhere condition to check for other possible, non-ideal matches at each stage, although this could be implemented later if it proves necessary. 
 
 ### Current Limitations and Future directions
