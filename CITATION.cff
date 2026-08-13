@@ -10,6 +10,7 @@ type: software
 authors:
   - family-names: Smith
     given-names: Meg
+    affiliation: Fryske Akademy & University of Amsterdam
 
 version: 0.1.0
 
