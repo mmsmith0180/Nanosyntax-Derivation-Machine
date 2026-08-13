@@ -88,6 +88,7 @@ derivations_pdf_path = os.path.join(
 st.header("Nanosyntax Derivation Machine")
 
 st.write("Enter a functional sequence below.")
+st.write("Separate features with commas. For example: `SPI, Asp, Mood, Tense, Num, Person, Part, Sp`")
 
 feature_input = st.text_input(
     "Functional sequence:",
@@ -98,6 +99,9 @@ feature_input = st.text_input(
 st.divider()
 
 st.header("Build Lexicon")
+
+st.write(r"use `$\bot$` for the bottom of the tree")  
+st.write("avoid [..., roof] notation")
 
 if "lexicon_entries" not in st.session_state:
     st.session_state.lexicon_entries = []
@@ -151,7 +155,14 @@ if "editing_entry" in st.session_state:
 else: 
     button_label = "Add to lexicon"
 
-if st.button(button_label, disabled=st.session_state.derivation_ready): 
+if st.button(button_label, disabled=st.session_state.derivation_ready):
+    if "[..., roof]" in structure_input:
+        st.error(
+            "Please do not use [..., roof] notation. "
+            "Replace with $\bot$ if this is the base of your tree, "
+            "or simply remove [..., roof] from your lexical item."
+        )
+        st.stop() 
     
     try:
         projection = Derivation_Machine_INTERFACE.latex_to_tree(
@@ -194,30 +205,40 @@ if st.button(button_label, disabled=st.session_state.derivation_ready):
 
                 Derivation_Machine_INTERFACE.delete_preview(entry["preview"])
 
-                entry["preview"] = Derivation_Machine_INTERFACE.create_preview(
+                preview_path = Derivation_Machine_INTERFACE.create_preview(
                     projection, 
                     filename=os.path.join(
                         st.session_state.preview_dir,
                         f"preview_{uuid.uuid4()}"
                     )
-                ) 
+                )   
+
+                entry["preview"] = preview_path 
+                entry["preview_base64"] = image_to_base64(preview_path) 
+
                 break
+
         del st.session_state.editing_entry
 
-    else:  
+    else: 
+        preview_path = Derivation_Machine_INTERFACE.create_preview(
+            projection,
+            filename=os.path.join(
+                st.session_state.preview_dir,
+                f"preview_{uuid.uuid4()}"
+            )
+        )
+
+        preview_base64 = image_to_base64(preview_path)
+
         st.session_state.lexicon_entries.append(
             {
                 "id": str(uuid.uuid4()),
                 "tree_string": structure_input,
                 "tree": projection,
                 "phonology": phonological_input,
-                "preview": Derivation_Machine_INTERFACE.create_preview(
-                    projection, 
-                    filename=os.path.join(
-                        st.session_state.preview_dir,
-                        f"preview_{uuid.uuid4()}"
-                    )
-                ),
+                "preview": preview_path, 
+                "preview_base64": preview_base64, 
                 "semantics": None
             }
         )
@@ -246,9 +267,7 @@ for i in range(0, len(entries), cards_per_row):
 
                 st.subheader(entry["phonology"])
 
-                preview_image = entry["preview"]
-
-                image_base64 = image_to_base64(preview_image)
+                image_base64 = entry["preview_base64"]
 
                 st.markdown(
                     f"""

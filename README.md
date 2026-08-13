@@ -155,6 +155,12 @@ Example:
 [NP[N][$\bot$]]
 ```
 
+Avoid using the triangular roof notation for now. This will be integrated in later versions. 
+
+```
+NO [..., roof]
+``` 
+
 ### Phrase Notation 
 
 Every phrase label should end in an uppercase `P`.
